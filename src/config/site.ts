@@ -5,8 +5,8 @@ import type { SiteConfig, NavConfig, FooterLinkGroup } from "@/types";
  * 프로젝트에 맞게 수정하세요.
  */
 export const siteConfig: SiteConfig = {
-  name: "Next.js Starter",
-  description: "Next.js 16 + React 19 + TypeScript + Tailwind CSS v4 기반 모던 웹 스타터킷",
+  name: "문서 교정 AI",
+  description: "PDF 문서를 업로드하면 Claude AI가 한국어 오류를 찾아 교정해드립니다",
   url: "https://example.com",
   ogImage: "https://example.com/og.jpg",
   links: {
@@ -19,16 +19,7 @@ export const siteConfig: SiteConfig = {
  * 네비게이션 설정
  */
 export const navConfig: NavConfig = {
-  mainNav: [
-    {
-      title: "홈",
-      href: "/",
-    },
-    {
-      title: "데모",
-      href: "/demo",
-    },
-  ],
+  mainNav: [],
 };
 
 /**
