@@ -2,6 +2,22 @@ import { extractText } from "unpdf";
 import type { ParsedPDF, PDFPage } from "./types";
 
 /**
+ * 텍스트 후처리: 줄바꿈으로 끊긴 단어 연결
+ * - "커리\n큘럼" → "커리큘럼"
+ * - "인프라\n배" → "인프라 배" (공백 유지)
+ */
+function postProcessText(text: string): string {
+  return text
+    // 한글 단어가 줄바꿈으로 끊긴 경우 공백으로 처리
+    .replace(/([가-힣])[\s]*\n[\s]*([가-힣])/g, "$1 $2")
+    // 연속된 공백 정리
+    .replace(/  +/g, " ")
+    // 줄바꿈 + 공백 정리
+    .replace(/\n +/g, "\n")
+    .replace(/ +\n/g, "\n");
+}
+
+/**
  * PDF 버퍼에서 텍스트 추출 (unpdf 사용 - Node.js 최적화)
  */
 export async function parsePDF(buffer: Buffer): Promise<ParsedPDF> {
@@ -19,7 +35,8 @@ export async function parsePDF(buffer: Buffer): Promise<ParsedPDF> {
     // 페이지별 텍스트 처리
     if (Array.isArray(result.text)) {
       result.text.forEach((pageText, index) => {
-        const content = pageText.trim();
+        // 후처리 적용
+        const content = postProcessText(pageText.trim());
         pages.push({
           pageNumber: index + 1,
           content,
@@ -28,11 +45,12 @@ export async function parsePDF(buffer: Buffer): Promise<ParsedPDF> {
       });
     } else {
       // 단일 텍스트인 경우
+      const content = postProcessText(result.text);
       pages.push({
         pageNumber: 1,
-        content: result.text,
+        content,
       });
-      fullText = result.text;
+      fullText = content;
     }
 
     return {
