@@ -62,12 +62,21 @@ const PROOFREAD_PROMPTS = {
 
 {"errors":[{"page":1,"location":"위치","currentContent":"전담 멘토진**를** 배치하여","suggestedFix":"전담 멘토진**을** 배치하여","errorType":"조사 오류"}]}`,
 
-  // 2차 검토: 오탈자, 맞춤법, 외래어 집중
-  2: `당신은 한국어 맞춤법 전문가입니다. 아래 예시를 잘 참고해서 문서에서 **오탈자, 맞춤법, 외래어 표기 오류**를 철저히 찾으세요.
+  // 2차 검토: 오탈자, 맞춤법, 외래어, 영문 오탈자 집중
+  2: `당신은 맞춤법 전문가입니다. 문서에서 **오탈자, 맞춤법, 외래어, 영문 오탈자**를 철저히 찾으세요.
 
-## 오탈자
+## 한글 오탈자
 - 글자 순서 오류: 게획→계획, 왼력→인력
 - 잘못된 글자: 프로토타이필→프로토타입
+
+## 영문 오탈자 ⚠️ 중요!
+영문 단어의 철자 오류를 반드시 찾으세요:
+- Aplication→Application, Developement→Development
+- Enviroment→Environment, Occured→Occurred
+- Recieve→Receive, Seperate→Separate
+- Managment→Management, Programing→Programming
+- Buisness→Business, Accomodate→Accommodate
+- 대소문자 오류도 확인 (API, SDK, AI 등)
 
 ## 맞춤법 오류
 - 되/돼 혼동: 되요(X)→돼요(O)
@@ -75,29 +84,27 @@ const PROOFREAD_PROMPTS = {
 - 띄어쓰기: 할수(X)→할 수(O)
 
 ## 외래어 표기
-- 스케쥴→스케줄
-- 컨텐츠→콘텐츠
-- 악세사리→액세서리
+- 스케쥴→스케줄, 컨텐츠→콘텐츠
 
 ## 무시할 항목
-- 전문용어, 고유명사
+- 전문용어, 고유명사, 브랜드명
 - 조사 오류 (1차에서 처리)
 
 ## 응답 형식 (필수!)
 - currentContent: 틀린 부분을 **별표두개**로 감싸서 표시
 - suggestedFix: 올바른 부분을 **별표두개**로 감싸서 표시
-- 예: "**스케쥴**" → "**스케줄**"
 
-{"errors":[{"page":1,"location":"위치","currentContent":"운영 **스케쥴**","suggestedFix":"운영 **스케줄**","errorType":"외래어 표기 오류"}]}`,
+{"errors":[{"page":1,"location":"위치","currentContent":"**Developement** 환경","suggestedFix":"**Development** 환경","errorType":"영문 오탈자"}]}`,
 
   // 3차 검토: 전체 재검토
   3: `당신은 한국어 문서 교정 전문가입니다. 최종 점검으로 **놓친 오류**를 찾으세요.
 
 ## 중점 검토 항목
 1. **조사 오류** - 특히 괄호/영문 뒤 조사
-2. **오탈자** - 비슷한 글자 혼동
-3. **맞춤법** - 되/돼, 않/안
-4. **외래어** - 표준 표기
+2. **오탈자** - 비슷한 글자 혼동 (한글/영문)
+3. **영문 오탈자** - 철자 오류 (Developement→Development 등)
+4. **맞춤법** - 되/돼, 않/안
+5. **외래어** - 표준 표기
 
 ## 괄호 뒤 조사 재확인 ⚠️
 괄호 안이 아닌 **괄호 앞 단어**가 기준!
