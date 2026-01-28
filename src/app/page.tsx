@@ -25,7 +25,7 @@ export default function HomePage() {
   const [reviewProgress, setReviewProgress] = useState<ReviewProgress>({
     status: "idle",
     currentReview: 0,
-    totalReviews: 3,
+    totalReviews: 1,
     message: "",
   });
   const [errors, setErrors] = useState<ProofreadingError[]>([]);
@@ -80,50 +80,117 @@ export default function HomePage() {
       const pages: PDFPage[] = uploadResult.data.pages;
       toast.success(`${uploadResult.data.totalPages}페이지 텍스트 추출 완료`);
 
-      // 2단계: 3회 반복 검토
+      // 2단계: AI 3회 반복 검토 (각각 다른 관점으로 검토)
       const allErrors: ProofreadingError[] = [];
+      const reviewMessages = [
+        "1차 검토: 조사 오류 분석 중...",
+        "2차 검토: 오탈자 및 맞춤법 분석 중...",
+        "3차 검토: 최종 점검 중...",
+      ];
 
-      for (let reviewNumber = 1; reviewNumber <= 3; reviewNumber++) {
+      for (let reviewNum = 1; reviewNum <= 3; reviewNum++) {
         setReviewProgress({
           status: "reviewing",
-          currentReview: reviewNumber,
+          currentReview: reviewNum,
           totalReviews: 3,
-          message: `${reviewNumber}차 검토 진행 중...`,
+          message: reviewMessages[reviewNum - 1],
         });
 
         const proofreadResponse = await fetch("/api/proofread", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pages, reviewNumber }),
+          body: JSON.stringify({ pages, reviewNumber: reviewNum }),
         });
 
         const proofreadResult: ProofreadResponse = await proofreadResponse.json();
 
         if (!proofreadResult.success) {
-          throw new Error(proofreadResult.error || `${reviewNumber}차 검토 실패`);
+          throw new Error(proofreadResult.error || `${reviewNum}차 검토 실패`);
         }
 
+        // 각 검토 결과 누적
         if (proofreadResult.errors) {
           allErrors.push(...proofreadResult.errors);
         }
 
-        toast.success(`${reviewNumber}차 검토 완료`);
+        console.log(`${reviewNum}차 검토: ${proofreadResult.errors?.length || 0}건 발견`);
       }
 
-      // 중복 제거
-      const uniqueErrors = deduplicateErrors(allErrors);
+      // 중복 제거 (내용 기반 - 페이지, 오류 유형 무관)
+      const seen = new Set<string>();
+      const dedupedErrors = allErrors.filter((error) => {
+        // 강조 마크, 공백, 줄바꿈 제거하고 정규화
+        const normalizedFix = error.suggestedFix
+          .replace(/\*\*/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+        // 페이지, 오류 유형 무시하고 수정 내용만으로 중복 판단
+        const key = normalizedFix;
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+
+      // 하이라이트 자동 추가: **강조**가 없으면 차이점에 추가
+      const errors = dedupedErrors.map((error) => {
+        let { currentContent, suggestedFix } = error;
+
+        // 이미 강조가 있으면 그대로 사용
+        if (currentContent.includes("**") && suggestedFix.includes("**")) {
+          return error;
+        }
+
+        // 강조가 없으면 차이점 찾아서 추가
+        const cleanCurrent = currentContent.replace(/\*\*/g, "");
+        const cleanFix = suggestedFix.replace(/\*\*/g, "");
+
+        // 간단한 차이점 찾기: 공통 접두어/접미어 제거
+        let prefixLen = 0;
+        while (prefixLen < cleanCurrent.length &&
+               prefixLen < cleanFix.length &&
+               cleanCurrent[prefixLen] === cleanFix[prefixLen]) {
+          prefixLen++;
+        }
+
+        let suffixLen = 0;
+        while (suffixLen < cleanCurrent.length - prefixLen &&
+               suffixLen < cleanFix.length - prefixLen &&
+               cleanCurrent[cleanCurrent.length - 1 - suffixLen] === cleanFix[cleanFix.length - 1 - suffixLen]) {
+          suffixLen++;
+        }
+
+        // 차이 부분 추출
+        const currentDiff = cleanCurrent.substring(prefixLen, cleanCurrent.length - suffixLen);
+        const fixDiff = cleanFix.substring(prefixLen, cleanFix.length - suffixLen);
+
+        if (currentDiff && fixDiff) {
+          currentContent = cleanCurrent.substring(0, prefixLen) +
+                          "**" + currentDiff + "**" +
+                          cleanCurrent.substring(cleanCurrent.length - suffixLen);
+          suggestedFix = cleanFix.substring(0, prefixLen) +
+                        "**" + fixDiff + "**" +
+                        cleanFix.substring(cleanFix.length - suffixLen);
+        }
+
+        return { ...error, currentContent, suggestedFix };
+      });
+
+      console.log(`총 ${allErrors.length}건 중 중복 제거 후 ${errors.length}건`);
 
       setReviewProgress({
         status: "completed",
         currentReview: 3,
         totalReviews: 3,
-        message: "검토 완료",
+        message: "3회 검토 완료",
       });
 
-      setErrors(uniqueErrors);
+      setErrors(errors);
       setStep("result");
 
-      toast.success(`검토 완료! ${uniqueErrors.length}건의 오류 발견`);
+      toast.success(`검토 완료! ${errors.length}건의 오류 발견`);
     } catch (error) {
       console.error("검토 오류:", error);
       toast.error(error instanceof Error ? error.message : "검토 중 오류가 발생했습니다");
@@ -139,31 +206,6 @@ export default function HomePage() {
     }
   };
 
-  // 중복 오류 제거 (클라이언트 측)
-  const deduplicateErrors = (errors: ProofreadingError[]): ProofreadingError[] => {
-    const seen = new Set<string>();
-    return errors.filter((error) => {
-      // 정규화 함수: 강조 마크 제거, 공백 정리, 소문자 변환
-      const normalize = (text: string) =>
-        text
-          .replace(/\*\*/g, "")           // **강조** 제거
-          .replace(/\s+/g, " ")           // 연속 공백을 단일 공백으로
-          .trim()
-          .toLowerCase();
-
-      // suggestedFix를 키로 사용하여 같은 수정 제안이면 중복으로 처리
-      const normalizedFix = normalize(error.suggestedFix);
-
-      // 페이지 + 수정제안 + 오류유형으로 중복 판별
-      const key = `${error.page}-${normalizedFix}-${error.errorType}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-  };
-
   // 새로운 검토 시작 (초기화)
   const handleReset = () => {
     setStep("upload");
@@ -173,7 +215,7 @@ export default function HomePage() {
     setReviewProgress({
       status: "idle",
       currentReview: 0,
-      totalReviews: 3,
+      totalReviews: 1,
       message: "",
     });
     setErrors([]);
@@ -195,10 +237,10 @@ export default function HomePage() {
         {/* 헤더 영역 */}
         <div className="mb-8 text-center">
           <h1 className="mb-2 text-2xl font-bold sm:text-3xl">
-            PDF 문서 교정 서비스
+            PDF Proof-Reader
           </h1>
           <p className="text-muted-foreground">
-            PDF를 업로드하면 AI가 3회 반복 검토하여 한국어 오류를 찾아드립니다
+            PDF를 업로드하면 AI가 3회 반복 검토하여 한국어 오류를 찾아드립니다.
           </p>
         </div>
 
@@ -272,7 +314,7 @@ export default function HomePage() {
                   AI 검토 진행 중
                 </CardTitle>
                 <CardDescription>
-                  Claude AI가 문서를 꼼꼼히 검토하고 있습니다
+                  Claude AI가 문서를 3번 반복 검토하고 있습니다
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -302,23 +344,19 @@ export default function HomePage() {
                   <Progress value={progressPercent} className="h-2" />
                 </div>
 
-                {/* 검토 단계 표시 */}
+                {/* 검토 상태 표시 */}
                 <div className="flex justify-center gap-2">
                   {[1, 2, 3].map((num) => (
                     <Badge
                       key={num}
                       variant={
-                        reviewProgress.currentReview >= num
-                          ? "default"
-                          : "outline"
+                        reviewProgress.currentReview >= num ? "default" : "outline"
                       }
-                      className={cn(
-                        "transition-all",
-                        reviewProgress.currentReview === num && "animate-pulse"
-                      )}
+                      className={
+                        reviewProgress.currentReview === num ? "animate-pulse" : ""
+                      }
                     >
                       {num}차 검토
-                      {reviewProgress.currentReview > num && " ✓"}
                     </Badge>
                   ))}
                 </div>
@@ -358,7 +396,7 @@ export default function HomePage() {
                           {uploadedFile.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          3회 반복 검토 완료
+                          AI 검토 완료
                         </p>
                       </div>
                     </div>

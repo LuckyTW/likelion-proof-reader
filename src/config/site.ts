@@ -5,7 +5,7 @@ import type { SiteConfig, NavConfig, FooterLinkGroup } from "@/types";
  * 프로젝트에 맞게 수정하세요.
  */
 export const siteConfig: SiteConfig = {
-  name: "문서 교정 AI",
+  name: "Likelion Proof-Reader",
   description: "PDF 문서를 업로드하면 Claude AI가 한국어 오류를 찾아 교정해드립니다",
   url: "https://example.com",
   ogImage: "https://example.com/og.jpg",

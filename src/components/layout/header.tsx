@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { FileText } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { ThemeToggle } from "@/components/common/theme-toggle";
 
 /**
  * 헤더 컴포넌트
- * - 로고 (📝 문서 교정 AI)
+ * - 로고 (🦁 Likelion Proof-Reader)
  * - 다크모드 토글
  */
 export function Header() {
@@ -20,8 +19,8 @@ export function Header() {
             href="/"
             className="flex items-center gap-2 transition-opacity hover:opacity-80"
           >
-            <FileText className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold">문서 교정 AI</span>
+            <span className="text-2xl">🦁</span>
+            <span className="text-lg font-bold">Likelion Proof-Reader</span>
           </Link>
 
           {/* 다크모드 토글 */}

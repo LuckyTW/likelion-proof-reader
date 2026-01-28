@@ -9,6 +9,8 @@ import type { UploadStatus } from "@/lib/types";
 
 // 최대 파일 크기: 50MB
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+// 최소 파일 크기: 1KB (별칭/북마크 파일 필터링)
+const MIN_FILE_SIZE = 1024;
 
 interface FileUploaderProps {
   onFileSelect: (file: File) => void;
@@ -58,17 +60,40 @@ export function FileUploader({
       }
 
       const file = acceptedFiles[0];
-      setSelectedFile(file);
+
+      // 최소 파일 크기 검증 (macOS 별칭/북마크 파일 필터링)
+      if (file.size < MIN_FILE_SIZE) {
+        setError("유효한 PDF 파일이 아닙니다. 별칭이 아닌 실제 파일을 선택해주세요.");
+        setStatus("error");
+        return;
+      }
+
+      // PDF 시그니처 검증 (실제 PDF인지 확인)
+      const validatePdfSignature = async (f: File): Promise<boolean> => {
+        const buffer = await f.slice(0, 1024).arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        const header = String.fromCharCode(...bytes.slice(0, 1024));
+        return header.includes("%PDF-");
+      };
+
       setStatus("uploading");
 
-      // 파일 선택 콜백 호출
-      onFileSelect(file);
+      validatePdfSignature(file).then((isValidPdf) => {
+        if (!isValidPdf) {
+          setError("유효한 PDF 파일이 아닙니다. 파일이 손상되었거나 별칭 파일일 수 있습니다.");
+          setStatus("error");
+          setSelectedFile(null);
+          return;
+        }
 
-      // 업로드 완료 시뮬레이션 (실제로는 API 호출 후 완료)
-      setTimeout(() => {
-        setStatus("success");
-        onUploadComplete?.();
-      }, 500);
+        setSelectedFile(file);
+        onFileSelect(file);
+
+        setTimeout(() => {
+          setStatus("success");
+          onUploadComplete?.();
+        }, 300);
+      });
     },
     [onFileSelect, onUploadComplete]
   );

@@ -13,14 +13,30 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     const file = formData.get("file") as File | null;
 
     if (!file) {
+      console.error("업로드 실패: 파일 없음");
       return NextResponse.json(
         { success: false, error: "파일이 없습니다" },
         { status: 400 }
       );
     }
 
-    // 파일 타입 확인
-    if (file.type !== "application/pdf") {
+    console.log(`업로드 시도: ${file.name}, 타입: ${file.type}, 크기: ${file.size}`);
+
+    // 파일 타입 확인 (다양한 PDF MIME 타입 허용)
+    const validPdfTypes = [
+      "application/pdf",
+      "application/x-pdf",
+      "application/acrobat",
+      "application/vnd.pdf",
+      "text/pdf",
+      "text/x-pdf",
+    ];
+
+    const isPdfByType = validPdfTypes.includes(file.type);
+    const isPdfByName = file.name.toLowerCase().endsWith(".pdf");
+
+    if (!isPdfByType && !isPdfByName) {
+      console.error(`업로드 실패: 잘못된 파일 타입 - ${file.type}`);
       return NextResponse.json(
         { success: false, error: "PDF 파일만 업로드 가능합니다" },
         { status: 400 }
